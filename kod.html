@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <title>v7.9 Pano Motoru | Erdal BAYRAK</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/owl.carousel.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/OwlCarousel2/2.3.4/assets/owl.carousel.min.css">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: sans-serif; }
+        #eb-slider, .item, .owl-item, .owl-stage-outer { height: 100vh !important; }
+        .item { position: relative; background: #000; display: flex; align-items: center; justify-content: center; }
+        .item img { width: 100%; height: 100% !important; object-fit: cover; }
+
+        /* İSTEDİĞİN O ŞIK TASARIM */
+        .eb-cap {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            padding: 120px 40px 40px; 
+            background: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.8) 60%, transparent 100%);
+            color: #fff; pointer-events: none; z-index: 10;
+        }
+        .eb-badge { display: flex; align-items: center; margin-bottom: 15px; width: fit-content; background: #fff; padding: 0 10px; border-radius: 2px; }
+        .school-name-text { font-weight: 800; font-size: 11px; text-transform: uppercase; color: #000; }
+        .news-label-text { background: #d32f2f; color: #fff; padding: 4px 8px; margin-left: 10px; border-radius: 2px; font-size: 10px; font-weight: bold; display: flex; align-items: center; }
+        
+        /* CANLI YEŞİL NOKTA ANİMASYONU */
+        .news-label-text::before {
+            content: ''; display: inline-block; width: 7px; height: 7px;
+            background-color: #2ecc71; border-radius: 50%; margin-right: 6px;
+            animation: pulse-green 2s infinite;
+        }
+        @keyframes pulse-green {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(46, 204, 113, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+        }
+        .eb-cap span:not(.school-name-text):not(.news-label-text) { font-size: 28px; font-weight: 700; line-height: 1.3; text-shadow: 0 4px 12px #000; display: block; }
+        
+        #loader { position: fixed; inset: 0; background: #000; z-index: 2000; display: flex; align-items: center; justify-content: center; }
+        .spinner { width: 35px; height: 35px; border: 3px solid #333; border-top-color: #d32f2f; border-radius: 50%; animation: sp 0.8s infinite linear; }
+        @keyframes sp { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="loader"><div class="spinner"></div></div>
+    <div id="eb-slider" class="owl-carousel"></div>
+
+<script>
+    const _p = "https://script.google.com/macros/s/AKfycbz7Cur6ko0XCniwQyxdRfZ1AdUm0MQ4cLHLS2XKxGjEM1r83BAk8okzPY98UIPafVr9/exec?url=";
+    
+    function getUrl() {
+        const params = new URLSearchParams(window.location.search);
+        let link = params.get('link') || params.get('okul');
+        if (!link) return "https://sinop.meb.gov.tr";
+        if (!link.startsWith('http')) link = 'https://' + link;
+        return link;
+    }
+
+    async function start() {
+        localStorage.clear(); // Hatalı önbelleği temizlemek için şart
+        const target = getUrl();
+        
+        try {
+            const r = await fetch(_p + encodeURIComponent(target));
+            const h = await r.text();
+            const d = new DOMParser().parseFromString(h, 'text/html');
+            const base = new URL(target).origin + '/';
+            
+            let sTitle = d.querySelector('title')?.innerText || "MEB";
+            let name = sTitle.includes('-') ? sTitle.split('-')[1].split('|')[0].trim() : sTitle.split('|')[0].trim();
+
+            let res = [];
+            d.querySelectorAll('.ws_images ul li, .swiper-slide, #resim img, .manset-resim img').forEach(el => {
+                const img = el.querySelector('img, image') || el;
+                let src = img.getAttribute('xlink:href') || img.getAttribute('src') || img.getAttribute('data-src');
+                let title = el.querySelector('span, .title')?.innerText || img.getAttribute('alt') || "Haber";
+                if (src && (src.includes('meb_iys') || src.includes('resim'))) {
+                    res.push({ i: src.startsWith('http') ? src : base + src.replace(/^\//,''), t: title });
+                }
+            });
+
+            if (res.length === 0) { $('#loader').hide(); return; }
+            
+            let html = '';
+            res.slice(0, 10).forEach(n => {
+                html += `
+                <div class="item">
+                    <img src="${n.i}">
+                    <div class="eb-cap">
+                        <div class="eb-badge">
+                            <span class="school-name-text">${name}</span>
+                            <span class="news-label-text">GÜNCEL HABERLER</span>
+                        </div>
+                        <span>${n.t}</span>
+                    </div>
+                </div>`;
+            });
+
+            $('#loader').hide();
+            $('#eb-slider').html(html).owlCarousel({
+                items:1, loop:true, autoplay:true, autoplayTimeout:6000, smartSpeed:800, dots:false, animateOut:'fadeOut'
+            });
+        } catch(e) { $('#loader').hide(); }
+    }
+    $(document).ready(start);
+</script>
+</body>
+</html>
